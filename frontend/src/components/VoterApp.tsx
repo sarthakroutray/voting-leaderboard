@@ -201,10 +201,10 @@ export default function VoterApp() {
   // -----------------------------
   if (voted) {
     return (
-      <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center p-6 text-white font-['Cormorant_Garamond']">
+      <div className="min-h-screen bg-[#050508] relative overflow-hidden flex flex-col items-center justify-center p-6 text-white font-['Cormorant_Garamond']">
         
         {/* Background Image & Stars */}
-        <div className="absolute inset-0 bg-[url('/favicon-nobg.png')] bg-[length:250px_250px] bg-center bg-no-repeat bg-fixed opacity-30 pointer-events-none"></div>
+        <div className="absolute inset-0 bg-[url('/favicon-nobg.png')] bg-[length:280px_280px] lg:bg-[length:350px_350px] bg-[center_top_12rem] bg-no-repeat bg-fixed opacity-15 pointer-events-none"></div>
         <div className="stars-container"></div>
         <div className="stars-container-2"></div>
 
