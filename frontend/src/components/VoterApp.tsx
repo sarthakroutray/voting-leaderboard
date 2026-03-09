@@ -36,7 +36,14 @@ const teamColors = [
 ];
 
 export default function VoterApp() {
-  const [user, setUser] = useState<GoogleUser | null>(null);
+  const [user, setUser] = useState<GoogleUser | null>(() => {
+    const stored = localStorage.getItem('google_user');
+    if (stored) {
+      try { return JSON.parse(stored); } 
+      catch { localStorage.removeItem('google_user'); }
+    }
+    return null;
+  });
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [voting, setVoting] = useState(false);
@@ -71,16 +78,6 @@ export default function VoterApp() {
   }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem('google_user');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setUser(parsed);
-      } catch {
-        localStorage.removeItem('google_user');
-      }
-    }
-
     const initGoogle = () => {
       if (window.google?.accounts?.id && !user) {
         window.google.accounts.id.initialize({
