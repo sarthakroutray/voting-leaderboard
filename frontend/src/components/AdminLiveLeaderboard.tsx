@@ -30,25 +30,33 @@ export default function AdminLiveLeaderboard() {
 
   // --- New Function to Toggle Voting ---
   const toggleVoting = async () => {
-    setIsToggling(true);
-    try {
-      const { error } = await supabase
-        .from('system_config')
-        .update({ value: !isVotingEnabled })
-        .eq('key', 'voting_active')
-        .select();
+  setIsToggling(true);
+  
+  // 1. Try to fetch it first to see if we can even "see" it
+  const { data: checkData } = await supabase
+    .from('system_config')
+    .select('*')
+    .eq('key', 'voting_active');
+    
+  console.log("Can I see the row?", checkData);
 
-      if (error) throw error;
-      // State will update via the Realtime listener below, 
-      // but we update locally for immediate feedback
-      setIsVotingEnabled(!isVotingEnabled);
-    } catch (err) {
-      console.error('Toggle failed:', err);
-      alert('Failed to update voting status.');
-    } finally {
-      setIsToggling(false);
-    }
-  };
+  // 2. Perform the update
+  const { data, error } = await supabase
+    .from('system_config')
+    .update({ value: !isVotingEnabled })
+    .eq('key', 'voting_active')
+    .select();
+
+  if (error) {
+    console.error("Update Error:", error.message);
+  } else if (!data || data.length === 0) {
+    console.error("0 rows updated. The key 'voting_active' likely doesn't exist in the table.");
+  } else {
+    console.log("Success! New value:", data[0].value);
+    setIsVotingEnabled(data[0].value);
+  }
+  setIsToggling(false);
+};
 
   const clearAllVotes = async () => {
     if (!window.confirm('⚠️ Are you sure you want to clear ALL votes? This action cannot be undone.')) return;
