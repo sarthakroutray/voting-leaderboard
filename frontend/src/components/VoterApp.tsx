@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Check, Flame, AlertCircle, LogOut, CheckCircle2 } from 'lucide-react';
+import { Check, Flame, AlertCircle, LogOut, CheckCircle2, Lock } from 'lucide-react';
 
 interface Team {
   id: string;
@@ -50,6 +50,10 @@ export default function VoterApp() {
   const [voted, setVoted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  
+  // --- New State for Voting Toggle ---
+  const [isVotingEnabled, setIsVotingEnabled] = useState<boolean>(true);
+  
   const googleBtnRef = useRef<HTMLDivElement>(null);
 
   const decodeJwt = (token: string) => {
@@ -77,6 +81,30 @@ export default function VoterApp() {
     localStorage.setItem('google_user', JSON.stringify(googleUser));
   }, []);
 
+  // --- Realtime Listener for Master Toggle ---
+  useEffect(() => {
+    const fetchVotingStatus = async () => {
+      const { data } = await supabase
+        .from('system_config')
+        .select('value')
+        .eq('key', 'voting_active')
+        .single();
+      if (data !== null) setIsVotingEnabled(data.value);
+    };
+
+    const configChannel = supabase
+      .channel('public:system_config')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'system_config' }, (payload) => {
+        if (payload.new.key === 'voting_active') {
+          setIsVotingEnabled(payload.new.value);
+        }
+      })
+      .subscribe();
+
+    fetchVotingStatus();
+    return () => { supabase.removeChannel(configChannel); };
+  }, []);
+
   useEffect(() => {
     const initGoogle = () => {
       if (window.google?.accounts?.id && !user) {
@@ -89,7 +117,7 @@ export default function VoterApp() {
           window.google.accounts.id.renderButton(googleBtnRef.current, {
             theme: 'filled_black',
             size: 'large',
-            width: 380,
+            width: 280, // <-- Reduced width from 380 to 280 to prevent overflow on mobile
             text: 'signin_with',
             shape: 'pill',
           });
@@ -194,8 +222,40 @@ export default function VoterApp() {
   };
 
   // -----------------------------
+  // RENDER: VOTING LOCKED SCREEN
+  if (!isVotingEnabled && !voted) {
+    return (
+      <div className="min-h-screen bg-[#050508] relative overflow-hidden flex flex-col items-center justify-center p-6 text-white font-['Cormorant_Garamond']">
+        <div className="absolute inset-0 bg-[url('/favicon-nobg.png')] bg-size-[280px_280px] lg:bg-size-[350px_350px] bg-position-[center_top_12rem] bg-no-repeat bg-fixed opacity-15 pointer-events-none"></div>
+        <div className="stars-container"></div>
+        <div className="stars-container-2"></div>
+        
+        <div className="relative z-10 flex flex-col items-center max-w-sm w-full space-y-8 text-center">
+          <div className="text-yellow-500 animate-pulse">
+            <Lock size={64} className="drop-shadow-[0_0_15px_rgba(234,179,8,0.4)]" />
+          </div>
+          <div className="space-y-4">
+            <h1 className="text-4xl font-['Cinzel'] font-black tracking-widest text-[#f8fafc]">
+              VOTING PAUSED
+            </h1>
+            <p className="text-xl text-gray-400 italic">
+              The cosmic polls are currently closed by the administrator. 
+              Keep an eye on the live leaderboard for results!
+            </p>
+          </div>
+          <div className="w-full h-px bg-linear-to-r from-transparent via-yellow-500/30 to-transparent"></div>
+          {user && (
+             <button onClick={handleLogout} className="flex items-center space-x-2 text-gray-500 hover:text-white transition-colors">
+                <LogOut size={18} />
+                <span className="text-lg uppercase tracking-widest font-['Cinzel']">Sign Out</span>
+             </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // RENDER: VOTED CONFIRMATION
-  // -----------------------------
   if (voted) {
     return (
       <div className="min-h-screen bg-[#050508] relative overflow-hidden flex flex-col items-center justify-center p-6 text-white font-['Cormorant_Garamond']">
@@ -292,8 +352,9 @@ export default function VoterApp() {
                   <span className="font-sans text-sm">{error}</span>
                 </div>
               )}
+              {/* Added w-full flex justify-center to ensure button centers properly */}
               <div className="w-full flex justify-center py-4">
-                <div ref={googleBtnRef}></div>
+                <div ref={googleBtnRef} className="flex justify-center w-full"></div>
               </div>
             </div>
           </div>
@@ -314,15 +375,15 @@ export default function VoterApp() {
               <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-[#00e5ff] to-[#0088ff] shadow-[0_0_10px_rgba(0,229,255,0.5)]"></div>
               
               <div className="flex justify-between items-start">
-                <div className="flex flex-col">
+                <div className="flex flex-col flex-wrap">
                   <span className="font-['Cinzel'] text-[10px] text-gray-500 tracking-[0.2em] font-bold uppercase mb-1">Authenticated As</span>
-                  <span className="text-lg font-semibold text-gray-100">{user.email}</span>
-                  <span className="text-sm text-gray-400 mt-1 flex items-center">
-                    Name: {user.name} <span className="mx-2">·</span> 
-                    <button onClick={handleLogout} className="hover:text-white transition-colors"><LogOut size={14}/></button>
+                  <span className="text-lg font-semibold text-gray-100 break-all">{user.email}</span>
+                  <span className="text-sm text-gray-400 mt-1 flex items-center flex-wrap gap-2">
+                    Name: {user.name} <span className="hidden sm:inline">·</span> 
+                    <button onClick={handleLogout} className="hover:text-white transition-colors flex items-center"><LogOut size={14} className="mr-1"/> Logout</button>
                   </span>
                 </div>
-                <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full border border-green-500/30 bg-green-500/10 text-green-400">
+                <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full border border-green-500/30 bg-green-500/10 text-green-400 shrink-0 ml-2">
                   <Check size={12} strokeWidth={3} />
                   <span className="text-[10px] font-['Cinzel'] font-bold tracking-widest uppercase">Verified</span>
                 </div>
